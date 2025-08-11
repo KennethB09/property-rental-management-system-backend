@@ -23,24 +23,48 @@ app.get("/", (req, res) => {
   res.json({ message: "Rental Platform API is running!" });
 });
 
-app.post("/auth/signup", async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const { data, error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-      options: { emailRedirectTo: "http://localhost:5173" },
-    });
+// Middleware to check user role
+const checkRole = (allowedRoles) => {
+  return async (req, res, next) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser(req.headers.authorization);
 
-    if (error) {
-      throw console.log(error.message);
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    res.status(201).json({ success: true, data });
-  } catch (error) {
-    console.log(error);
-  }
-});
+    const userRole = await supabase.rpc(
+      "get_user_role",
+      {},
+      {
+        headers: { Authorization: req.headers.authorization },
+      }
+    );
+
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    req.user = user;
+    next();
+  };
+};
+
+// // Protected routes
+// app.get('/landlord/dashboard',
+//   checkRole(['landlord']),
+//   async (req, res) => {
+//     // Landlord-specific logic
+//   }
+// )
+
+// app.get('/tenant/dashboard',
+//   checkRole(['tenant']),
+//   async (req, res) => {
+//     // Tenant-specific logic
+//   }
+// )
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
