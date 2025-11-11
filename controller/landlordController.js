@@ -1,6 +1,9 @@
 import { supabase } from "../server.js";
 import { decode } from "base64-arraybuffer";
 
+const base64regex =
+  /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
+
 function getBase64AndMimeType(image) {
   const base64 = image.split(",")[1];
   const mime = image.match(/:(.*?);/)[1];
@@ -29,7 +32,7 @@ async function uploadProfile(id, image) {
 
 async function uploadPropertyImages(id, thumbnail, images) {
   let thumbnailPath;
-  let imagesPath;
+  const imagesPath = [];
 
   const PARCE_IMAGES = JSON.parse(images);
 
@@ -42,7 +45,6 @@ async function uploadPropertyImages(id, thumbnail, images) {
       decode(thumbnailBase64.base64),
       {
         contentType: thumbnailBase64.mime,
-        cacheControl: "3600",
         upsert: true,
       }
     );
@@ -51,7 +53,7 @@ async function uploadPropertyImages(id, thumbnail, images) {
     return { status: false, error: error };
   }
 
-  thumbnailPath = data.fullPath;
+  thumbnailPath = data.path;
 
   for (let i = 0; i < PARCE_IMAGES.length; i++) {
     const imageBase64 = getBase64AndMimeType(PARCE_IMAGES[i].data_url);
@@ -63,7 +65,6 @@ async function uploadPropertyImages(id, thumbnail, images) {
         decode(imageBase64.base64),
         {
           contentType: imageBase64.mime,
-          cacheControl: "3600",
           upsert: true,
         }
       );
@@ -72,14 +73,79 @@ async function uploadPropertyImages(id, thumbnail, images) {
       return { status: false, error: error };
     }
 
-    if (i === PARCE_IMAGES.length - 1) {
-      imagesPath = data.path;
-    }
+    imagesPath.push(data.path);
   }
 
   return {
     status: true,
     data: { thumbnail: thumbnailPath, images: imagesPath },
+  };
+}
+
+async function updatePropertyImages(id, thumbnail, images) {
+  const parseImages = JSON.parse(images);
+  const propertyImages = parseImages.currentImages;
+  let thumbnailPath;
+
+  if (thumbnail.type === "route") {
+    thumbnailPath = thumbnail.thumbnail;
+  } else {
+    const image64 = getBase64AndMimeType(thumbnail.thumbnail.data_url);
+
+    const { data, error } = await supabase.storage
+      .from("listings_image")
+      .upload(
+        id + "/property-images/thumbnail/" + "thumbnail",
+        decode(image64.base64),
+        {
+          contentType: image64.mime,
+          upsert: true,
+        }
+      );
+
+    if (error) {
+      return { status: false, error: error };
+    }
+
+    thumbnailPath = data.path;
+  }
+
+  if (parseImages.newImages.length !== 0) {
+    for (let i = 0; i < parseImages.newImages.length; i++) {
+      const image64 = getBase64AndMimeType(parseImages.newImages[i].data_url);
+
+      const { data, error } = await supabase.storage
+        .from("listings_image")
+        .upload(
+          id + "/property-images/images/" + `image${new Date()}${i}`,
+          decode(image64.base64),
+          {
+            contentType: image64.mime,
+            upsert: true,
+          }
+        );
+
+      if (error) {
+        return { status: false, error: error };
+      }
+
+      propertyImages.push(data.path);
+    }
+  }
+
+  if (parseImages.deleteImages.length !== 0) {
+    const { error } = await supabase.storage
+      .from("listings_image")
+      .remove(parseImages.deleteImages);
+
+    if (error) {
+      return { status: false, error: error };
+    }
+  }
+
+  return {
+    status: true,
+    data: { thumbnail: thumbnailPath, images: propertyImages },
   };
 }
 
@@ -130,6 +196,15 @@ export async function completeAccountSetup(req, res) {
 
     if (error) {
       throw error;
+    }
+
+    const { error: updateUserError } = await supabase.auth.admin.updateUserById(
+      id,
+      { user_metadata: { profileImage: uploadImage.data.fullPath } }
+    );
+
+    if (updateUserError) {
+      throw updateUserError;
     }
 
     res.status(200).json(data);
@@ -295,7 +370,7 @@ export async function listProperty(req, res) {
         thumbnail: propertyImages.data.thumbnail,
         images: propertyImages.data.images,
       })
-      .eq("id", data.id)
+      .eq("id", data.id);
 
     if (updateError) {
       throw updateError;
@@ -304,6 +379,153 @@ export async function listProperty(req, res) {
     res
       .status(200)
       .json({ property: data, message: "Property added successfully." });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function getLandlordProperties(req, res) {
+  const userId = req.params.id;
+
+  try {
+    const { data, error } = await supabase
+      .from("listings")
+      .select("*, property_type(id, name)")
+      .eq("landlord_ID", userId)
+      .limit(20);
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(200).json({ data: data });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function EditLandlordProperty(req, res) {
+  const propertyId = req.params.id;
+  const {
+    title,
+    description,
+    address,
+    rent,
+    status,
+    occupant,
+    images,
+    thumbnail,
+    propertyType,
+    lng,
+    lat,
+  } = req.body;
+
+  try {
+    const updateImages = await updatePropertyImages(
+      propertyId,
+      thumbnail,
+      images
+    );
+
+    if (updateImages.error) {
+      throw updateImages.error;
+    }
+
+    const { data, error } = await supabase
+      .from("listings")
+      .update({
+        name: title,
+        description: description,
+        address: address,
+        rent: rent,
+        status: status,
+        latitude: lat,
+        longitude: lng,
+        occupant: occupant,
+        property_type: propertyType,
+        thumbnail: updateImages.data.thumbnail,
+        images: updateImages.data.images,
+      })
+      .eq("id", propertyId)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    res
+      .status(200)
+      .json({ property: data, message: "Property updated successfully." });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function deleteProperty(req, res) {
+  const propertyId = req.params.id;
+
+  try {
+    const { data, error: getError } = await supabase
+      .from("listings")
+      .select("status")
+      .eq("id", propertyId)
+      .single();
+
+    if (getError) {
+      throw getError;
+    }
+
+    if (data.status !== "unlisted") {
+      return res.status(405).json({
+        message: "You can only delete a property with status unlisted.",
+      });
+    }
+
+    const { error } = await supabase
+      .from("listings")
+      .delete()
+      .eq("id", propertyId);
+
+    if (error) {
+      throw error;
+    }
+
+    // List all files in the property-images folder
+    const { data: files, error: listError } = await supabase.storage
+      .from("listings_image")
+      .list(`${propertyId}/property-images/images`, {
+        limit: 100,
+        offset: 0,
+      });
+
+    if (listError) {
+      throw listError;
+    }
+
+    // If there are files, delete them all
+    if (files && files.length > 0) {
+      const filePaths = files.map(
+        (file) => `${propertyId}/property-images/images/${file.name}`
+      );
+
+      // Add the thumbnail path to the array
+      filePaths.push(`${propertyId}/property-images/thumbnail/thumbnail`);
+
+      // Now remove all files
+      const { error: deleteError } = await supabase.storage
+        .from("listings_image")
+        .remove(filePaths);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+    }
+
+    res.status(200).json({ message: "Delete success." });
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: error.message });
