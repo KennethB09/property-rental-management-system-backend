@@ -364,13 +364,15 @@ export async function listProperty(req, res) {
       throw propertyImages.error;
     }
 
-    const { error: updateError } = await supabase
+    const { data: lisiting, error: updateError } = await supabase
       .from("listings")
       .update({
         thumbnail: propertyImages.data.thumbnail,
         images: propertyImages.data.images,
       })
-      .eq("id", data.id);
+      .eq("id", data.id)
+      .select()
+      .single();
 
     if (updateError) {
       throw updateError;
@@ -378,7 +380,7 @@ export async function listProperty(req, res) {
 
     res
       .status(200)
-      .json({ property: data, message: "Property added successfully." });
+      .json({ property: lisiting, message: "Property added successfully." });
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: error.message });
@@ -469,7 +471,7 @@ export async function deleteProperty(req, res) {
   const propertyId = req.params.id;
 
   try {
-    const { data, error: getError } = await supabase
+    const { data, status, error: getError } = await supabase
       .from("listings")
       .select("status")
       .eq("id", propertyId)
@@ -525,9 +527,62 @@ export async function deleteProperty(req, res) {
       }
     }
 
-    res.status(200).json({ message: "Delete success." });
+    res.status(status).json({ message: "Delete success." });
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: error.message });
   }
+}
+
+export async function countLandlordPropertiesAndGetStatus(req, res) {
+  const userId = req.params.id;
+
+  try {
+    const { count: totalCount, error } = await supabase
+      .from("listings")
+      .select("*", { count: "exact", head: true })
+      .eq("landlord_ID", userId);
+
+    if (error) {
+      throw error;
+    }
+
+    const unlistedProperties = await countProperties(userId, "unlisted");
+
+    if (!unlistedProperties.status) return unlistedProperties.error;
+
+    const availableProperties = await countProperties(userId, "available");
+
+    if (!availableProperties.status) return availableProperties.error;
+
+    const occupiedProperties = await countProperties(userId, "occupied");
+
+    if (!occupiedProperties.status) return occupiedProperties.error;
+
+    res
+      .status(200)
+      .json({
+        unlisted: unlistedProperties.count,
+        available: availableProperties.count,
+        occupied: occupiedProperties.count,
+        total: totalCount,
+      });
+  } catch (error) {
+    console.error(error.message);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+async function countProperties(id, status) {
+  const { count, error } = await supabase
+    .from("listings")
+    .select("*", { count: "exact", head: true })
+    .eq("landlord_ID", id)
+    .eq("status", status);
+
+  if (error) {
+    return { status: false, error: error };
+  }
+
+  return { status: true, count: count };
 }
