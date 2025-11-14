@@ -1,9 +1,6 @@
 import { supabase } from "../server.js";
 import { decode } from "base64-arraybuffer";
 
-const base64regex =
-  /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
-
 function getBase64AndMimeType(image) {
   const base64 = image.split(",")[1];
   const mime = image.match(/:(.*?);/)[1];
@@ -11,13 +8,29 @@ function getBase64AndMimeType(image) {
   return { mime, base64 };
 }
 
-async function uploadProfile(id, image) {
+export async function uploadProfile(id, image, path) {
   const base64 = image.split(",")[1];
   const mime = image.match(/:(.*?);/)[1];
 
+  if (path === "" || path === undefined || path === null) {
+    const { data, error } = await supabase.storage
+      .from("profile")
+      .upload(id + "/" + "profile", decode(base64), {
+        contentType: mime,
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (error) {
+      return { status: false, error: error };
+    }
+
+    return { status: true, data: data };
+  }
+
   const { data, error } = await supabase.storage
     .from("profile")
-    .upload(id + "/" + "profile", decode(base64), {
+    .update(path, decode(base64), {
       contentType: mime,
       cacheControl: "3600",
       upsert: true,
@@ -45,6 +58,7 @@ async function uploadPropertyImages(id, thumbnail, images) {
       decode(thumbnailBase64.base64),
       {
         contentType: thumbnailBase64.mime,
+        cacheControl: "3600",
         upsert: true,
       }
     );
@@ -65,6 +79,7 @@ async function uploadPropertyImages(id, thumbnail, images) {
         decode(imageBase64.base64),
         {
           contentType: imageBase64.mime,
+          cacheControl: "3600",
           upsert: true,
         }
       );
@@ -94,11 +109,12 @@ async function updatePropertyImages(id, thumbnail, images) {
 
     const { data, error } = await supabase.storage
       .from("listings_image")
-      .upload(
-        id + "/property-images/thumbnail/" + "thumbnail",
+      .update(
+        id + "/property-images/thumbnail/thumbnail",
         decode(image64.base64),
         {
           contentType: image64.mime,
+          cacheControl: "3600",
           upsert: true,
         }
       );
@@ -258,6 +274,7 @@ export async function getProfile(req, res) {
 
 export async function EditLandlordProfile(req, res) {
   const {
+    path,
     img,
     id,
     first_name,
@@ -287,7 +304,7 @@ export async function EditLandlordProfile(req, res) {
       return res.status(200).json({ message: "Profile updated." });
     }
 
-    const uploadImage = await uploadProfile(id, img);
+    const uploadImage = await uploadProfile(id, img, path);
 
     if (!uploadImage.status) {
       throw uploadImage.error;
@@ -471,7 +488,11 @@ export async function deleteProperty(req, res) {
   const propertyId = req.params.id;
 
   try {
-    const { data, status, error: getError } = await supabase
+    const {
+      data,
+      status,
+      error: getError,
+    } = await supabase
       .from("listings")
       .select("status")
       .eq("id", propertyId)
@@ -559,14 +580,12 @@ export async function countLandlordPropertiesAndGetStatus(req, res) {
 
     if (!occupiedProperties.status) return occupiedProperties.error;
 
-    res
-      .status(200)
-      .json({
-        unlisted: unlistedProperties.count,
-        available: availableProperties.count,
-        occupied: occupiedProperties.count,
-        total: totalCount,
-      });
+    res.status(200).json({
+      unlisted: unlistedProperties.count,
+      available: availableProperties.count,
+      occupied: occupiedProperties.count,
+      total: totalCount,
+    });
   } catch (error) {
     console.error(error.message);
     res.status(400).json({ message: error.message });

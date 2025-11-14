@@ -19,9 +19,26 @@ export async function getListedProperties(req, res) {
   try {
     const { data, status, error } = await supabase
     .from("listings")
-    .select("*, landlord_ID(first_name, last_name, profile_pic), property_type(id, name)")
+    .select("*, landlord_ID(id, first_name, last_name, profile_pic), property_type(id, name)")
     .eq("status", "available")
     .limit(50);
+
+    if (error) {
+      throw error
+    }
+
+    res.status(status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function getOccupationType(req, res) {
+  try {
+    const { data, status, error } = await supabase
+    .from("occupation_type")
+    .select("*");
 
     if (error) {
       throw error

@@ -15,15 +15,20 @@ import {
 import {
   getPropertyType,
   getListedProperties,
+  getOccupationType
 } from "../controller/appController.js";
 
 import {
+  getTenantProfile,
   getTenantSaveListing,
   tenantSaveListing,
   tenantRemoveListing,
+  EditTenantProfile
 } from "../controller/tenantController.js";
 
 export const router = express.Router();
+
+router.get("/occupantion-type", getOccupationType);
 
 router.get("/check-setup/:id", checkUserIfCompletedAccountSetup);
 router.post("/complete-setup", completeAccountSetup);
@@ -42,3 +47,5 @@ router.get("/listings", getListedProperties);
 router.get("/tenant/saves/:id", getTenantSaveListing);
 router.post("/tenant/save", tenantSaveListing);
 router.delete("/tenant/remove-save/:id", tenantRemoveListing);
+router.get("/tenant-profile/:id", getTenantProfile);
+router.post("/edit-tenant-profile", EditTenantProfile)
