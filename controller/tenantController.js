@@ -147,3 +147,23 @@ export async function EditTenantProfile(req, res) {
     res.status(400).json({ message: error.message });
   }
 }
+
+export async function getTenantConversation(req, res) {
+  const userId = req.params.id;
+
+  try {
+    const { data, status, error } = await supabase
+    .from("conversations")
+    .select("*, listing_id(*), tenant_id(*), landlord_id(*)")
+    .eq("tenant_id", userId);
+
+    if (error) {
+      throw error
+    }
+
+    res.status(status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}

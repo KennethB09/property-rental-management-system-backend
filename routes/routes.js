@@ -10,12 +10,14 @@ import {
   EditLandlordProperty,
   deleteProperty,
   countLandlordPropertiesAndGetStatus,
+  getLandlordConversation
 } from "../controller/landlordController.js";
 
 import {
   getPropertyType,
   getListedProperties,
-  getOccupationType
+  getOccupationType,
+  createConvesation
 } from "../controller/appController.js";
 
 import {
@@ -23,7 +25,8 @@ import {
   getTenantSaveListing,
   tenantSaveListing,
   tenantRemoveListing,
-  EditTenantProfile
+  EditTenantProfile,
+  getTenantConversation
 } from "../controller/tenantController.js";
 
 export const router = express.Router();
@@ -49,3 +52,6 @@ router.post("/tenant/save", tenantSaveListing);
 router.delete("/tenant/remove-save/:id", tenantRemoveListing);
 router.get("/tenant-profile/:id", getTenantProfile);
 router.post("/edit-tenant-profile", EditTenantProfile)
+router.post("/start-conversation", createConvesation);
+router.get("/tenant/get-conversations/:id", getTenantConversation)
+router.get("/landlord/get-conversations/:id", getLandlordConversation)

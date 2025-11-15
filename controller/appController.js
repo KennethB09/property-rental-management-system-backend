@@ -50,3 +50,28 @@ export async function getOccupationType(req, res) {
     res.status(400).json({ message: error.message });
   }
 }
+
+export async function createConvesation(req, res) {
+  const { listing_Id, tenant_Id, landlord_Id } = req.body;
+
+  try {
+    const { data, status, error } = await supabase
+    .from("conversations")
+    .insert({
+      listing_id: listing_Id,
+      tenant_id: tenant_Id,
+      landlord_id: landlord_Id
+    })
+    .select("*")
+    .single();
+
+    if (error) {
+      throw error
+    }
+
+    res.status(status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}

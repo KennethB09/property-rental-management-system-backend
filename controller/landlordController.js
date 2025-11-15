@@ -605,3 +605,23 @@ async function countProperties(id, status) {
 
   return { status: true, count: count };
 }
+
+export async function getLandlordConversation(req, res) {
+  const userId = req.params.id;
+
+  try {
+    const { data, status, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("landlord_id", userId);
+
+    if (error) {
+      throw error
+    }
+
+    res.status(status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
