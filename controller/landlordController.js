@@ -612,7 +612,7 @@ export async function getLandlordConversation(req, res) {
   try {
     const { data, status, error } = await supabase
     .from("conversations")
-    .select("*")
+    .select("*, listing_id(*), tenant_id(*), landlord_id(*)")
     .eq("landlord_id", userId);
 
     if (error) {

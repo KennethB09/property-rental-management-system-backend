@@ -17,7 +17,9 @@ import {
   getPropertyType,
   getListedProperties,
   getOccupationType,
-  createConvesation
+  createConvesation,
+  sendMessage,
+  getMessages
 } from "../controller/appController.js";
 
 import {
@@ -55,3 +57,6 @@ router.post("/edit-tenant-profile", EditTenantProfile)
 router.post("/start-conversation", createConvesation);
 router.get("/tenant/get-conversations/:id", getTenantConversation)
 router.get("/landlord/get-conversations/:id", getLandlordConversation)
+
+router.post("/send-message/:id", sendMessage);
+router.get("/get-messages/:id", getMessages)
