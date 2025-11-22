@@ -350,3 +350,41 @@ export async function getPropertyRating(req, res) {
     res.status(400).json({ message: error.message });
   }
 }
+
+export async function searchProperty(req, res) {
+  const { minPrice, maxPrice, propertyType, maxTenant, searchQuery } = req.query;
+
+  try {
+    let query = supabase.from("listings").select("*, landlord_ID(id, first_name, last_name, profile_pic), property_type(id, name)").eq("status", "available");
+
+    // Apply filters
+    if (minPrice) {
+      query = query.gte("rent", +minPrice);
+    }
+    if (maxPrice) {
+      query = query.lte("rent", +maxPrice);
+    }
+    if (propertyType) {
+      query = query.eq("property_type", propertyType);
+    }
+    if (maxTenant) {
+      query = query.gte("occupant", +maxTenant);
+    }
+
+    // Search by name if search query exists
+    if (searchQuery) {
+      query = query.textSearch("name", searchQuery);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}

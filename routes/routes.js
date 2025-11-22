@@ -24,7 +24,8 @@ import {
   getUserTenancies,
   updateTenancyStatus,
   postReview,
-  getPropertyRating
+  getPropertyRating,
+  searchProperty
 } from "../controller/appController.js";
 
 import {
@@ -70,3 +71,4 @@ router.get("/get-tenancies/:id", getUserTenancies);
 router.patch("/update-tenancy-status/:id", updateTenancyStatus);
 router.post("/post-review/:id", postReview);
 router.get("/get-rating/:id", getPropertyRating);
+router.get('/search-property', searchProperty);
