@@ -64,27 +64,34 @@ export async function createConvesation(req, res) {
         tenant_id: tenant_Id,
         landlord_id: landlord_Id,
       })
-      .select("*, last_msg(content, created_at)")
+      .select("id")
       .single();
 
     if (error) {
       throw error;
     }
 
-    const { error:msgError } = await supabase
-    .from("messages")
-    .insert({
+    const { error: msgError } = await supabase.from("messages").insert({
       convo_id: data.id,
       sender_id: tenant_Id,
       content: message,
-      replying_to: null
+      replying_to: null,
     });
 
     if (msgError) {
-      throw msgError
+      throw msgError;
     }
 
-    res.status(status).json(data);
+    const { data: getData, error: getError } = await supabase
+      .from("conversations")
+      .select("*, last_msg(content, created_at)")
+      .single();
+
+    if (getError) {
+      throw getError;
+    }
+
+    res.status(status).json(getData);
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: error.message });
@@ -109,15 +116,16 @@ export async function sendMessage(req, res) {
 
     if (error) {
       console.error("Error sending message:", error);
-      throw error
+      throw error;
     }
 
-    const { error:updateError } = await supabase
-    .from("conversations")
-    .update({ last_msg: data.id }).eq("id", conversationId);
+    const { error: updateError } = await supabase
+      .from("conversations")
+      .update({ last_msg: data.id })
+      .eq("id", conversationId);
 
     if (updateError) {
-      throw updateError
+      throw updateError;
     }
 
     res.status(status).json(data);
@@ -143,6 +151,140 @@ export async function getMessages(req, res) {
     }
 
     res.status(status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function createTenancy(req, res) {
+  const { landlord_id, tenant_id, property_id, status, initiated_by } =
+    req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from("tenancies")
+      .insert({
+        landlord_id,
+        tenant_id,
+        property_id,
+        status,
+        initiated_by,
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function getUserTenancies(req, res) {
+  const userId = req.params.id;
+  try {
+    const { data, error } = await supabase
+      .from("tenancies")
+      .select(
+        "*, property_id(id, name, thumbnail, rent), tenant_id(id, first_name, last_name, profile_pic), landlord_id(id, first_name, last_name)"
+      )
+      .or(`landlord_id.eq.${userId},tenant_id.eq.${userId}`);
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function updateTenancyStatus(req, res) {
+  const listing_Id = req.params.id;
+  const { id, status } = req.body;
+
+  try {
+    if (status === "active") {
+      const { error } = await supabase
+        .from("listings")
+        .update({
+          status: "occupied",
+        })
+        .eq("id", listing_Id);
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    if (status === "ended") {
+      const { error } = await supabase
+        .from("listings")
+        .update({
+          status: "unlisted",
+        })
+        .eq("id", listing_Id);
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("tenancies")
+      .update({
+        status: status,
+      })
+      .eq("id", id)
+      .select("status")
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (status === "active") {
+      const { data, error } = await supabase
+        .from("tenancies")
+        .update({
+          start: new Date(),
+        })
+        .eq("id", id)
+        .select("status")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return res.status(200).json(data);
+    }
+
+    if (status === "ended") {
+      const { data, error } = await supabase
+        .from("tenancies")
+        .update({
+          end: new Date(),
+        })
+        .eq("id", id)
+        .select("status")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return res.status(200).json(data);
+    }
+
+    res.status(200).json(data);
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: error.message });

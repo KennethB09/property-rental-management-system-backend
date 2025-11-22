@@ -19,7 +19,10 @@ import {
   getOccupationType,
   createConvesation,
   sendMessage,
-  getMessages
+  getMessages,
+  createTenancy,
+  getUserTenancies,
+  updateTenancyStatus
 } from "../controller/appController.js";
 
 import {
@@ -59,4 +62,7 @@ router.get("/tenant/get-conversations/:id", getTenantConversation)
 router.get("/landlord/get-conversations/:id", getLandlordConversation)
 
 router.post("/send-message/:id", sendMessage);
-router.get("/get-messages/:id", getMessages)
+router.get("/get-messages/:id", getMessages);
+router.post("/tenancy", createTenancy)
+router.get("/get-tenancies/:id", getUserTenancies);
+router.patch("/update-tenancy-status/:id", updateTenancyStatus)
