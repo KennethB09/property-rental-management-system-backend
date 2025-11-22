@@ -22,7 +22,9 @@ import {
   getMessages,
   createTenancy,
   getUserTenancies,
-  updateTenancyStatus
+  updateTenancyStatus,
+  postReview,
+  getPropertyRating
 } from "../controller/appController.js";
 
 import {
@@ -65,4 +67,6 @@ router.post("/send-message/:id", sendMessage);
 router.get("/get-messages/:id", getMessages);
 router.post("/tenancy", createTenancy)
 router.get("/get-tenancies/:id", getUserTenancies);
-router.patch("/update-tenancy-status/:id", updateTenancyStatus)
+router.patch("/update-tenancy-status/:id", updateTenancyStatus);
+router.post("/post-review/:id", postReview);
+router.get("/get-rating/:id", getPropertyRating);

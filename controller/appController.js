@@ -290,3 +290,63 @@ export async function updateTenancyStatus(req, res) {
     res.status(400).json({ message: error.message });
   }
 }
+
+export async function postReview(req, res) {
+  const property_id = req.params.id;
+  const { tenant, content, rating } = req.body;
+
+  try {
+    const { data, error, status } = await supabase
+      .from("reviews")
+      .insert({
+        listing_ID: property_id,
+        tenant_ID: tenant,
+        content: content,
+        rating: rating,
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
+
+export async function getPropertyRating(req, res) {
+  const propertyId = req.params.id;
+
+  try {
+    const { data: reviews, error } = await supabase
+      .from("reviews")
+      .select("*, tenant_ID(first_name, last_name, profile_pic)")
+      .eq("listing_ID", propertyId);
+
+    if (error) {
+      throw error;
+    }
+
+    const reviewCount = reviews.length;
+    const overallRating =
+      reviewCount > 0
+        ? (
+            reviews.reduce((sum, review) => sum + review.rating, 0) /
+            reviewCount
+          ).toFixed(2)
+        : 0;
+
+    res.status(200).json({
+      reviews,
+      reviewLength: reviewCount,
+      rating: parseFloat(overallRating),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: error.message });
+  }
+}
