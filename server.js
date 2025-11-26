@@ -20,6 +20,7 @@ app.use(
     origin: [
       process.env.CLIENT,
       "https://zmtvcrrs-5173.asse.devtunnels.ms",
+      "http://localhost:5173"
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
