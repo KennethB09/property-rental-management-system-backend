@@ -57,7 +57,7 @@ export async function createConvesation(req, res) {
   const { listing_Id, tenant_Id, landlord_Id, message } = req.body;
 
   try {
-    const { data, status, error } = await supabase
+    const { data, error } = await supabase
       .from("conversations")
       .insert({
         listing_id: listing_Id,
@@ -71,12 +71,12 @@ export async function createConvesation(req, res) {
       throw error;
     }
 
-    const { error: msgError } = await supabase.from("messages").insert({
+    const { data: newMsg, error: msgError } = await supabase.from("messages").insert({
       convo_id: data.id,
       sender_id: tenant_Id,
       content: message,
       replying_to: null,
-    });
+    }).select("id").single();
 
     if (msgError) {
       throw msgError;
@@ -84,14 +84,16 @@ export async function createConvesation(req, res) {
 
     const { data: getData, error: getError } = await supabase
       .from("conversations")
-      .select("*, last_msg(content, created_at)")
+      .update({ last_msg: newMsg.id })
+      .eq("id", data.id)
+      .select("*, listing_id(*), tenant_id(*), landlord_id(*), last_msg(content, created_at)")
       .single();
 
     if (getError) {
       throw getError;
     }
 
-    res.status(status).json(getData);
+    res.status(200).json(getData);
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: error.message });
