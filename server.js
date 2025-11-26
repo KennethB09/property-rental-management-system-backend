@@ -15,7 +15,16 @@ const app = express();
 const PORT = process.env.PORT;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      process.env.CLIENT,
+      "https://zmtvcrrs-5173.asse.devtunnels.ms",
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -25,7 +34,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Rental Platform API is running!" });
 });
 
-app.use('/rent-ease/api', router);
+app.use("/rent-ease/api", router);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

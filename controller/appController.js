@@ -171,7 +171,7 @@ export async function createTenancy(req, res) {
         status,
         initiated_by,
       })
-      .select("*")
+      .select("*, property_id(id, name, thumbnail, rent), tenant_id(id, first_name, last_name, profile_pic), landlord_id(id, first_name, last_name)")
       .single();
 
     if (error) {
